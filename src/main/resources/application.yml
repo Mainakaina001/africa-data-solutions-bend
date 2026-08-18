@@ -1,0 +1,111 @@
+spring:
+  application:
+    name: Africa Data Solution
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/africa_data_solutions}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:Saban@6622}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:10}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  servlet:
+    multipart:
+      max-file-size: 1MB
+      max-request-size: 1MB
+
+server:
+  port: ${PORT:5000}
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:native}
+  tomcat:
+    connection-timeout: 65s
+    max-swallow-size: 262144
+
+springdoc:
+  api-docs:
+    path: /api-docs.json
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /api-docs
+    enabled: ${API_DOCS_ENABLED:true}
+
+app:
+  name: ${APP_NAME:Africa Data Solutions}
+  url: ${APP_URL:http://localhost:5000}
+  frontend-origins: ${FRONTEND_ORIGINS:http://localhost:8081}
+  trusted-proxies: ${TRUSTED_PROXIES:1}
+
+  jwt:
+    secret: ${JWT_SECRET:zdZZiVV4BTpv8RumicZK8EgNMZb7coJNPHARiexA5ANQLerrjBMlCxLFt8mzyKqG3skBjAtGx1naiwdTafHvEI}
+    issuer: ${JWT_ISSUER:africa-data-solutions}
+    audience: ${JWT_AUDIENCE:ads-mobile}
+    access-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-ttl-days: ${REFRESH_TTL_DAYS:30}
+
+  wallet:
+    daily-debit-cap: ${WALLET_DAILY_DEBIT_CAP:500000}
+    per-tx-max: ${WALLET_PER_TX_MAX:200000}
+    strict-locking: ${WALLET_STRICT_LOCKING:true}
+    pin-max-failed-attempts: ${PIN_MAX_FAILED_ATTEMPTS:5}
+    login-max-failed-attempts: ${LOGIN_MAX_FAILED_ATTEMPTS:5}
+    login-lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
+
+  billstack:
+    api-key: ${BILLSTACK_API_KEY:Bill_Stack-SEC-KEY-f299344886d01117065981aec34d7796}
+    secret-key: ${BILLSTACK_SECRET_KEY:Bill_Stack-PUB-KEY-04dfc0e961f56b5492423a163bac9252}
+    base-url: ${BILLSTACK_BASE_URL:https://api.billstack.co/v2/thirdparty}
+    webhook-secret: ${BILLSTACK_WEBHOOK_SECRET:Bill_Stack-PUB-KEY-04dfc0e961f56b5492423a163bac9252}
+    webhook-ip-allowlist: ${BILLSTACK_WEBHOOK_IPS:}
+
+  sme-plug:
+    api-key: ${SME_PLUG_API_KEY:c3a372b4ca50f217496e7bca8dfb674f84f66a4573bec0e08c55d095c6fa2c5d}
+    base-url: ${SME_PLUG_BASE_URL:https://smeplug.ng/api/v1}
+
+  vtpass:
+    api-key: ${VTPASS_API_KEY:18574605ef7df26aadd236e11fa10058}
+    public-key: ${VTPASS_PUBLIC_KEY:PK_4126eac394bc613f2f4c94484c9ba979810dad3462b}
+    secret-key: ${VTPASS_SECRET_KEY:SK_8034ef79219cda54fb49d4cd5603335a3da035c52c7}
+    base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com/api}
+
+  firebase:
+    project-id: ${FIREBASE_PROJECT_ID:}
+    private-key: ${FIREBASE_PRIVATE_KEY:}
+    client-email: ${FIREBASE_CLIENT_EMAIL:}
+    service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH:./firebase-service-account.json}
+
+  email:
+    resend-api-key: ${RESEND_API_KEY:}
+    from: ${EMAIL_FROM:onboarding@resend.dev}
+
+  rate-limit:
+    window-ms: ${RATE_LIMIT_WINDOW_MS:900000}
+    max-requests: ${RATE_LIMIT_MAX_REQUESTS:100}
+
+logging:
+  level:
+    root: INFO
+    afds.africadatasolution: ${LOG_LEVEL:INFO}
+  file:
+    name: logs/combined.log
