@@ -35,6 +35,9 @@ jobs:
           java-version: "17"
           cache: maven
 
+      # mvnw's executable bit can get lost coming from a Windows checkout/commit; don't rely on git's stored mode.
+      - run: chmod +x mvnw
+
       - name: Run tests
         env:
           DATABASE_URL: jdbc:postgresql://localhost:5432/africa_data_solutions
