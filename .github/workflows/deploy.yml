@@ -94,6 +94,8 @@ jobs:
         run: |
           echo "${{ secrets.ORACLE_SSH_KEY }}" | base64 -d > ${{ runner.temp }}/deploy_key
           chmod 600 ${{ runner.temp }}/deploy_key
+          echo "Decoded key fingerprint (expect SHA256:+fC0sgwjr65h7vmxyfDsqIG0pLfDXhQVamNMzgT5I6M):"
+          ssh-keygen -lf ${{ runner.temp }}/deploy_key || echo "ssh-keygen could not read the decoded file"
 
       - name: Ensure deploy directory exists
         uses: appleboy/ssh-action@v1
