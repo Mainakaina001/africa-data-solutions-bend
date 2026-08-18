@@ -8,6 +8,10 @@ services:
       POSTGRES_DB: ${DATABASE_NAME:-africa_data_solutions}
       POSTGRES_USER: ${DATABASE_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD must be set in .env}
+    # Bound to loopback only — reachable solely from processes running on this server
+    # itself (e.g. an SSH tunnel), never from the public internet.
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
