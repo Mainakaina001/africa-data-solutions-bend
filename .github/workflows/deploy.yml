@@ -92,16 +92,15 @@ jobs:
       # OpenSSH key parsing. A single-line encoded value sidesteps that entirely.
       - name: Decode deploy key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.ORACLE_SSH_KEY }}" | base64 -d > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.ORACLE_SSH_KEY }}" | base64 -d > ${{ runner.temp }}/deploy_key
+          chmod 600 ${{ runner.temp }}/deploy_key
 
       - name: Ensure deploy directory exists
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USER }}
-          key_path: ~/.ssh/deploy_key
+          key_path: ${{ runner.temp }}/deploy_key
           port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
           script: sudo mkdir -p ${{ env.DEPLOY_PATH }} && sudo chown ${{ secrets.ORACLE_USER }}:${{ secrets.ORACLE_USER }} ${{ env.DEPLOY_PATH }}
 
@@ -110,7 +109,7 @@ jobs:
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USER }}
-          key_path: ~/.ssh/deploy_key
+          key_path: ${{ runner.temp }}/deploy_key
           port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
           source: "docker-compose.yml,Caddyfile"
           target: ${{ env.DEPLOY_PATH }}
@@ -121,7 +120,7 @@ jobs:
         with:
           host: ${{ secrets.ORACLE_HOST }}
           username: ${{ secrets.ORACLE_USER }}
-          key_path: ~/.ssh/deploy_key
+          key_path: ${{ runner.temp }}/deploy_key
           port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
           envs: GHCR_TOKEN,GHCR_ACTOR,IMAGE_TAG,DEPLOY_PATH
           script: |
