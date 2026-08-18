@@ -1,0 +1,42 @@
+name: africa-data-solutions-dev
+
+# Local development only: builds the image from source and talks to a
+# throwaway Postgres with ports exposed on localhost. Run with:
+#   docker compose -f docker-compose.dev.yml up --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: africa_data_solutions
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d africa_data_solutions"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/africa_data_solutions
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      PORT: 5000
+      APP_URL: http://localhost:5000
+      FRONTEND_ORIGINS: http://localhost:8081
+      JWT_SECRET: dev-only-secret-do-not-use-in-production
+    ports:
+      - "5000:5000"
+
+volumes:
+  dev_db_data:

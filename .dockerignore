@@ -1,0 +1,14 @@
+target/
+logs/
+.git/
+.github/
+.idea/
+.vscode/
+.mvn/wrapper/maven-wrapper.jar
+*.md
+.env
+.env.*
+!.env.example
+Dockerfile
+docker-compose*.yml
+Caddyfile
