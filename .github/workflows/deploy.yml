@@ -93,9 +93,10 @@ jobs:
       - name: Decode deploy key
         run: |
           echo "${{ secrets.ORACLE_SSH_KEY }}" | base64 -d > ${{ runner.temp }}/deploy_key
-          chmod 600 ${{ runner.temp }}/deploy_key
-          echo "Decoded key fingerprint (expect SHA256:+fC0sgwjr65h7vmxyfDsqIG0pLfDXhQVamNMzgT5I6M):"
-          ssh-keygen -lf ${{ runner.temp }}/deploy_key || echo "ssh-keygen could not read the decoded file"
+          # 644, not 600: appleboy/scp-action runs as a Docker container (unlike ssh-action,
+          # which runs natively), so it reads this file as a different uid than the one that
+          # wrote it. Fine on this ephemeral, isolated runner VM.
+          chmod 644 ${{ runner.temp }}/deploy_key
 
       - name: Ensure deploy directory exists
         uses: appleboy/ssh-action@v1
