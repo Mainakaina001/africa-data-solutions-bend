@@ -87,12 +87,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ORACLE_SSH_KEY is base64-encoded: GitHub's secret text box has a history of
+      # DEPLOY_SSH_KEY is base64-encoded: GitHub's secret text box has a history of
       # silently dropping the trailing newline on multi-line values, which breaks
       # OpenSSH key parsing. A single-line encoded value sidesteps that entirely.
       - name: Decode deploy key
         run: |
-          echo "${{ secrets.ORACLE_SSH_KEY }}" | base64 -d > ${{ runner.temp }}/deploy_key
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" | base64 -d > ${{ runner.temp }}/deploy_key
           # 644, not 600: appleboy/scp-action runs as a Docker container (unlike ssh-action,
           # which runs natively), so it reads this file as a different uid than the one that
           # wrote it. Fine on this ephemeral, isolated runner VM.
@@ -101,19 +101,19 @@ jobs:
       - name: Ensure deploy directory exists
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.ORACLE_HOST }}
-          username: ${{ secrets.ORACLE_USER }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           key_path: ${{ runner.temp }}/deploy_key
-          port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
-          script: sudo mkdir -p ${{ env.DEPLOY_PATH }} && sudo chown ${{ secrets.ORACLE_USER }}:${{ secrets.ORACLE_USER }} ${{ env.DEPLOY_PATH }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script: sudo mkdir -p ${{ env.DEPLOY_PATH }} && sudo chown ${{ secrets.DEPLOY_USER }}:${{ secrets.DEPLOY_USER }} ${{ env.DEPLOY_PATH }}
 
       - name: Copy compose files to server
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.ORACLE_HOST }}
-          username: ${{ secrets.ORACLE_USER }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           key_path: ${{ runner.temp }}/deploy_key
-          port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
           source: "docker-compose.yml,Caddyfile"
           target: ${{ env.DEPLOY_PATH }}
           strip_components: 0
@@ -121,10 +121,10 @@ jobs:
       - name: Pull image and restart
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.ORACLE_HOST }}
-          username: ${{ secrets.ORACLE_USER }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
           key_path: ${{ runner.temp }}/deploy_key
-          port: ${{ secrets.ORACLE_SSH_PORT || 22 }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
           envs: GHCR_TOKEN,GHCR_ACTOR,IMAGE_TAG,DEPLOY_PATH
           script: |
             cd ${{ env.DEPLOY_PATH }}

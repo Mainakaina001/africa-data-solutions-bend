@@ -2,67 +2,38 @@
 
 CI/CD: on every push to `main`, GitHub Actions runs the test suite against a
 throwaway Postgres, builds a Docker image, pushes it to GHCR
-(`ghcr.io/<owner>/africa-data-solutions`), then SSHes into the Oracle server
+(`ghcr.io/<owner>/africa-data-solutions`), then SSHes into the deploy server
 and redeploys via `docker compose`. Workflow: `.github/workflows/deploy.yml`.
 
 ## One-time setup
 
-### 1. Oracle Cloud server
+### 1. InterServer VPS
 
-- A `VM.Standard.E2.1.Micro` (x86_64/amd64) compute instance with a public IP
-  — the CI build targets `linux/amd64` specifically, matching this shape. If
-  you later move to an Ampere A1 (arm64) instance instead, change
-  `platforms: linux/amd64` to `linux/arm64` in
-  `.github/workflows/deploy.yml` (and add back `docker/setup-qemu-action`
-  before the buildx step, since the GitHub runner itself is amd64 and would
-  need to cross-compile).
-- Only **1 GB RAM** on this shape — tight for Postgres + the JVM + Caddy
-  together. The Dockerfile already sizes the JVM heap as a percentage of
-  available memory rather than a fixed value, but you'll likely still want a
-  swap file so a memory spike doesn't OOM-kill a container:
-  ```bash
-  sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
-  sudo mkswap /swapfile && sudo swapon /swapfile
-  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-  ```
-- **Two separate firewalls both block traffic by default on OCI — you need to
-  open both, or Caddy will never get a Let's Encrypt certificate:**
-  1. The Security List / Network Security Group on the VCN's subnet (in the
-     OCI console) — add ingress rules for TCP 22, 80, 443 from `0.0.0.0/0`.
-  2. On the instance itself: Oracle's official Ubuntu marketplace image
-     pre-configures `iptables` (via netfilter-persistent) to only allow SSH
-     inbound — separate from `ufw`, and easy to miss since `ufw status` alone
-     can look fine while this still blocks 80/443:
-     ```bash
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-     sudo netfilter-persistent save
-     ```
-     Also check `sudo ufw status` — if `ufw` is active, add
-     `sudo ufw allow 80,443/tcp` too.
-- Install Docker + the Compose plugin:
-  ```bash
-  curl -fsSL https://get.docker.com | sudo sh
-  sudo usermod -aG docker $USER   # log out/in after this
-  ```
+Running on InterServer VPS `vps3583260` (KVM, Ubuntu 26.04, public IP
+`162.35.113.12`).
+
+- 1.6 GB RAM, 1 GB swap already provisioned by InterServer — enough headroom
+  for Postgres + the JVM + Caddy together. The Dockerfile sizes the JVM heap
+  as a percentage of available memory rather than a fixed value.
+- A dedicated `deploy` user (not root) was created for CI/CD, with
+  passwordless `sudo` and membership in the `docker` group.
+- `ufw` is enabled with `22/tcp`, `80/tcp`, `443/tcp` open — no separate
+  cloud-level security group to worry about here (unlike Oracle Cloud's
+  VCN + iptables double firewall).
+- Docker + the Compose plugin are installed via `get.docker.com`.
 - `africadatasolutions.org` already hosts the frontend, so don't repoint the
   root domain — in Hostinger's DNS zone editor, add a new **A record**: name
-  `api`, value the server's public IP. This gives the backend
+  `api`, value `162.35.113.12`. This gives the backend
   `api.africadatasolutions.org` without touching the existing frontend
   records. Caddy needs this DNS record live before it can issue a Let's
   Encrypt certificate.
 
 ### 2. Deploy SSH key
 
-Generate a dedicated key pair for GitHub Actions (don't reuse your personal key):
-
-```bash
-ssh-keygen -t ed25519 -f deploy_key -N ""
-```
-
-- Append `deploy_key.pub` to `~/.ssh/authorized_keys` for the deploy user on
-  the Oracle server.
-- Keep `deploy_key` (the private half) for the GitHub secret below.
+A dedicated ed25519 key pair (not a personal key) was generated for GitHub
+Actions and its public half added to `/home/deploy/.ssh/authorized_keys` on
+the VPS. Keep the private half for the GitHub secret below — it isn't stored
+in this repo.
 
 ### 3. GitHub repository secrets
 
@@ -70,10 +41,10 @@ Settings → Secrets and variables → Actions → New repository secret:
 
 | Secret | Value |
 |---|---|
-| `ORACLE_HOST` | Server's public IP or hostname |
-| `ORACLE_USER` | `ubuntu` |
-| `ORACLE_SSH_KEY` | Contents of the private `deploy_key` file |
-| `ORACLE_SSH_PORT` | Only if not 22 |
+| `DEPLOY_HOST` | `162.35.113.12` |
+| `DEPLOY_USER` | `deploy` |
+| `DEPLOY_SSH_KEY` | Base64 of the private deploy key (`base64 -w0 deploy_key`) |
+| `DEPLOY_SSH_PORT` | Only if not 22 |
 
 `GITHUB_TOKEN` (used for GHCR push/pull) is automatic — no secret to add.
 
