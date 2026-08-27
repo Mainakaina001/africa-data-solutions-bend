@@ -13,11 +13,13 @@ import java.util.UUID;
  * Wallet-debit + SME Plug delivery + refund-on-definite-failure orchestration.
  * Mirrors backend/src/services/data.service.ts.
  *
- * Pricing is always read from our own {@code data_plans} table — SME Plug is
- * asked to deliver, never asked what to charge. Refunds use the exact amount
- * debited (never the upstream wholesale price). On ambiguous delivery errors
- * the order is left PROCESSING for the reconciliation worker rather than
- * auto-refunded.
+ * Pricing is always read live from SME Plug's own catalog at purchase time —
+ * never from the (possibly stale) {@code data_plans.price} column, since the
+ * reseller dashboard on SME Plug's side is the source of truth for what we
+ * charge. {@code data_plans} only supplies the network/plan-id mapping and
+ * display metadata. Refunds use the exact amount debited. On ambiguous
+ * delivery errors the order is left PROCESSING for the reconciliation worker
+ * rather than auto-refunded.
  */
 public interface DataService {
 

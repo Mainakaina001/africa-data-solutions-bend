@@ -18,6 +18,7 @@ import afds.africadatasolution.modules.data.service.DataService;
 import afds.africadatasolution.modules.external.smeplug.SmePlugClient;
 import afds.africadatasolution.modules.external.smeplug.SmePlugDataRequest;
 import afds.africadatasolution.modules.external.smeplug.SmePlugDataResponse;
+import afds.africadatasolution.modules.external.smeplug.SmePlugPlan;
 import afds.africadatasolution.modules.outbox.service.OutboxService;
 import afds.africadatasolution.modules.wallet.WalletCreditCommand;
 import afds.africadatasolution.modules.wallet.WalletDebitCommand;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -69,9 +71,37 @@ public class DataServiceImpl implements DataService {
     @Transactional(readOnly = true)
     @Override
     public List<DataPlan> getDataPlans(String network) {
-        return network == null || network.isBlank()
+        List<DataPlan> plans = network == null || network.isBlank()
                 ? dataPlanRepository.findByIsActiveTrueOrderByNetworkAscPriceAsc()
                 : dataPlanRepository.findByIsActiveTrueAndNetworkIgnoreCaseOrderByNetworkAscPriceAsc(network);
+        overlayLivePrices(plans);
+        return plans;
+    }
+
+    /**
+     * Best-effort: browsing should show SME Plug's live selling price (the
+     * reseller dashboard, not our stale data_plans.price), but a catalog
+     * fetch failure here shouldn't break the whole listing — falls back to
+     * the last-known local price. Purchases never use this fallback; see
+     * {@link SmePlugClient#getLivePrice}.
+     */
+    private void overlayLivePrices(List<DataPlan> plans) {
+        if (plans.isEmpty()) return;
+        Map<String, List<SmePlugPlan>> live;
+        try {
+            live = smePlugClient.getDataPlans().data();
+        } catch (RuntimeException e) {
+            log.warn("Failed to fetch live SME Plug prices for listing, using local catalog prices: {}", e.getMessage());
+            return;
+        }
+        for (DataPlan plan : plans) {
+            List<SmePlugPlan> networkPlans = live.get(String.valueOf(plan.getNetworkId()));
+            if (networkPlans == null) continue;
+            networkPlans.stream()
+                    .filter(p -> p.id() == plan.getSmePlugPlanId())
+                    .findFirst()
+                    .ifPresent(p -> plan.setPrice(p.price()));
+        }
     }
 
     @Transactional(readOnly = true)
@@ -89,19 +119,23 @@ public class DataServiceImpl implements DataService {
             throw new ValidationException("Invalid " + plan.getNetwork() + " phone number: " + request.phone());
         }
 
+        // Always the live SME Plug selling price, never data_plans.price — the reseller
+        // dashboard is the source of truth and can change independently of our catalog.
+        BigDecimal price = smePlugClient.getLivePrice(plan.getNetworkId(), plan.getSmePlugPlanId());
+
         Wallet wallet = walletService.getWalletByUserId(userId);
-        if (wallet.getBalance().compareTo(plan.getPrice()) < 0) {
+        if (wallet.getBalance().compareTo(price) < 0) {
             throw new InsufficientBalanceException(
-                    "Insufficient balance. Required: ₦" + plan.getPrice() + ", Available: ₦" + wallet.getBalance());
+                    "Insufficient balance. Required: ₦" + price + ", Available: ₦" + wallet.getBalance());
         }
 
         String orderReference = "ORDER_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
         String walletTxnRef = "DEBIT_" + orderReference;
 
-        DataOrder order = createPendingOrder(userId, plan, formattedPhone, orderReference);
+        DataOrder order = createPendingOrder(userId, plan, formattedPhone, orderReference, price);
 
         try {
-            debitForOrder(order, wallet, plan.getPrice(), walletTxnRef, formattedPhone, plan);
+            debitForOrder(order, wallet, price, walletTxnRef, formattedPhone, plan);
         } catch (RuntimeException e) {
             markOrderFailed(order.getId(), e.getMessage());
             throw e;
@@ -119,22 +153,22 @@ public class DataServiceImpl implements DataService {
             return new DataPurchaseResponseWithMessage(new DataPurchaseResponse(order.getId(), true),
                     plan.getDataAmount() + " data successfully sent to " + formattedPhone);
         } catch (ExternalServiceException smeError) {
-            return handleDeliveryFailure(order.getId(), userId, wallet, plan, orderReference, walletTxnRef, smeError);
+            return handleDeliveryFailure(order.getId(), userId, wallet, plan, price, orderReference, walletTxnRef, smeError);
         }
     }
 
-    private DataOrder createPendingOrder(UUID userId, DataPlan plan, String formattedPhone, String orderReference) {
+    private DataOrder createPendingOrder(UUID userId, DataPlan plan, String formattedPhone, String orderReference, BigDecimal price) {
         DataOrder order = new DataOrder();
         order.setUserId(userId);
         order.setDataPlanId(plan.getId());
         order.setPhone(formattedPhone);
-        order.setAmount(plan.getPrice());
+        order.setAmount(price);
         order.setReference(orderReference);
         order.setStatus(OrderStatus.PENDING);
         return dataOrderRepository.save(order);
     }
 
-    private void debitForOrder(DataOrder order, Wallet wallet, java.math.BigDecimal price, String walletTxnRef,
+    private void debitForOrder(DataOrder order, Wallet wallet, BigDecimal price, String walletTxnRef,
                                 String formattedPhone, DataPlan plan) {
         walletService.debitWallet(new WalletDebitCommand(wallet.getId(), price, walletTxnRef,
                 "Data purchase: " + plan.getPlanName() + " for " + formattedPhone,
@@ -167,7 +201,7 @@ public class DataServiceImpl implements DataService {
         dataOrderRepository.save(order);
     }
 
-    private DataPurchaseResponseWithMessage handleDeliveryFailure(UUID orderId, UUID userId, Wallet wallet, DataPlan plan,
+    private DataPurchaseResponseWithMessage handleDeliveryFailure(UUID orderId, UUID userId, Wallet wallet, DataPlan plan, BigDecimal price,
                                                                     String orderReference, String walletTxnRef,
                                                                     ExternalServiceException smeError) {
         FailureClassification classification = smeError.getClassification();
@@ -175,7 +209,7 @@ public class DataServiceImpl implements DataService {
 
         if (classification == FailureClassification.DEFINITIVE_FAILURE) {
             String refundRef = "REFUND_" + orderReference;
-            walletService.creditWallet(new WalletCreditCommand(wallet.getId(), plan.getPrice(), refundRef,
+            walletService.creditWallet(new WalletCreditCommand(wallet.getId(), price, refundRef,
                     "Refund for failed data purchase: " + orderReference,
                     Map.of("orderId", orderId.toString(), "originalTxnRef", walletTxnRef, "reason", smeError.getMessage())));
 

@@ -11,6 +11,7 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -98,6 +99,24 @@ public class SmePlugClient {
             log.error("Failed to fetch SME Plug data plans error={}", e.getMessage());
             throw new ExternalServiceException("SME Plug", extractMessage(e));
         }
+    }
+
+    /**
+     * Live selling price for one plan, straight from SME Plug's own catalog —
+     * the reseller dashboard is the source of truth for pricing (never our
+     * local data_plans.price), so this is called fresh on every purchase.
+     */
+    public BigDecimal getLivePrice(int networkId, int planId) {
+        SmePlugPlansResponse response = getDataPlans();
+        List<SmePlugPlan> networkPlans = response.data().get(String.valueOf(networkId));
+        if (networkPlans != null) {
+            for (SmePlugPlan plan : networkPlans) {
+                if (plan.id() == planId) {
+                    return plan.price();
+                }
+            }
+        }
+        throw new ExternalServiceException("SME Plug", "Invalid data plan selected", DEFINITIVE_FAILURE);
     }
 
     public List<NetworkPlans> getFormattedPlans() {
