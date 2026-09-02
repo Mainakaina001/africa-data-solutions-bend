@@ -35,6 +35,13 @@ services:
       APP_URL: http://localhost:5000
       FRONTEND_ORIGINS: http://localhost:8081
       JWT_SECRET: dev-only-secret-do-not-use-in-production
+      BILLSTACK_API_KEY: dev-placeholder
+      BILLSTACK_SECRET_KEY: dev-placeholder
+      BILLSTACK_WEBHOOK_SECRET: dev-placeholder
+      SME_PLUG_API_KEY: dev-placeholder
+      VTPASS_API_KEY: dev-placeholder
+      VTPASS_PUBLIC_KEY: dev-placeholder
+      VTPASS_SECRET_KEY: dev-placeholder
     ports:
       - "5000:5000"
 

@@ -89,11 +89,17 @@ Builds the image from source, runs Postgres + the app, exposes the app on
 
 ## Security note
 
-`src/main/resources/application.yml` currently has real-looking fallback
-values hardcoded for `JWT_SECRET`, the database password, and the
-Billstack/SME Plug/VTPass API keys (used only if the corresponding env var
-isn't set). Since this file is committed to git, anyone with repo access —
-now or from git history, even if removed later — has those values. Once
-production is running purely off `.env` (which this setup does), those
-defaults are dead code in that path but still exposed in the repo. Rotate any
-of them that are real credentials, and remove the hardcoded fallbacks.
+`src/main/resources/application.yml` no longer has hardcoded fallback values
+for `JWT_SECRET`, the database password, or the Billstack/SME Plug/VTPass API
+keys — those `${VAR}` placeholders now have no default, so the app fails to
+start if one is missing from `.env` rather than silently falling back to a
+committed value. Local dev (`docker-compose.dev.yml`) sets its own
+placeholder values for these directly in the compose file.
+
+The values that were previously hardcoded there are still exposed in git
+history even though the file no longer contains them — rotate any of them
+that were real production credentials. As of 2026-09-02: `VTPASS_PUBLIC_KEY`
+and `VTPASS_SECRET_KEY` in `.env` are new values, not the exposed ones, but
+`VTPASS_API_KEY` is still the same value that was hardcoded in this file —
+rotate it from the VTPass dashboard when possible. JWT_SECRET, the database
+password, and the Billstack/SME Plug keys have not been checked/rotated.

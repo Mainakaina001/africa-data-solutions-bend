@@ -55,6 +55,7 @@ public class SmePlugClient {
         try {
             SmePlugDataResponse response = restTemplate.postForObject("/data/purchase", request, SmePlugDataResponse.class);
             if (response == null || !response.status()) {
+                log.warn("SME Plug data purchase returned failure phone={} rawResponse={}", request.phone(), response);
                 String msg = response != null ? response.failureMessage("Data purchase failed") : "Data purchase failed";
                 throw new ExternalServiceException("SME Plug", msg, DEFINITIVE_FAILURE);
             }
@@ -172,6 +173,7 @@ public class SmePlugClient {
             body.put("amount", amount);
             SmePlugDataResponse response = restTemplate.postForObject("/airtime/purchase", body, SmePlugDataResponse.class);
             if (response == null || !response.status()) {
+                log.warn("SME Plug airtime purchase returned failure phone={} rawResponse={}", phone, response);
                 String msg = response != null ? response.failureMessage("Airtime purchase failed") : "Airtime purchase failed";
                 throw new ExternalServiceException("SME Plug", msg, DEFINITIVE_FAILURE);
             }

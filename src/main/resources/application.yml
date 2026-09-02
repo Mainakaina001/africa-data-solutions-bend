@@ -5,7 +5,7 @@ spring:
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/africa_data_solutions}
     username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:Saban@6622}
+    password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: ${DATABASE_POOL_SIZE:10}
 
@@ -58,7 +58,7 @@ app:
   trusted-proxies: ${TRUSTED_PROXIES:1}
 
   jwt:
-    secret: ${JWT_SECRET:zdZZiVV4BTpv8RumicZK8EgNMZb7coJNPHARiexA5ANQLerrjBMlCxLFt8mzyKqG3skBjAtGx1naiwdTafHvEI}
+    secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:africa-data-solutions}
     audience: ${JWT_AUDIENCE:ads-mobile}
     access-ttl: ${JWT_ACCESS_TTL:15m}
@@ -73,20 +73,20 @@ app:
     login-lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
 
   billstack:
-    api-key: ${BILLSTACK_API_KEY:Bill_Stack-SEC-KEY-f299344886d01117065981aec34d7796}
-    secret-key: ${BILLSTACK_SECRET_KEY:Bill_Stack-PUB-KEY-04dfc0e961f56b5492423a163bac9252}
+    api-key: ${BILLSTACK_API_KEY}
+    secret-key: ${BILLSTACK_SECRET_KEY}
     base-url: ${BILLSTACK_BASE_URL:https://api.billstack.co/v2/thirdparty}
-    webhook-secret: ${BILLSTACK_WEBHOOK_SECRET:Bill_Stack-PUB-KEY-04dfc0e961f56b5492423a163bac9252}
+    webhook-secret: ${BILLSTACK_WEBHOOK_SECRET}
     webhook-ip-allowlist: ${BILLSTACK_WEBHOOK_IPS:}
 
   sme-plug:
-    api-key: ${SME_PLUG_API_KEY:c3a372b4ca50f217496e7bca8dfb674f84f66a4573bec0e08c55d095c6fa2c5d}
+    api-key: ${SME_PLUG_API_KEY}
     base-url: ${SME_PLUG_BASE_URL:https://smeplug.ng/api/v1}
 
   vtpass:
-    api-key: ${VTPASS_API_KEY:18574605ef7df26aadd236e11fa10058}
-    public-key: ${VTPASS_PUBLIC_KEY:PK_4126eac394bc613f2f4c94484c9ba979810dad3462b}
-    secret-key: ${VTPASS_SECRET_KEY:SK_8034ef79219cda54fb49d4cd5603335a3da035c52c7}
+    api-key: ${VTPASS_API_KEY}
+    public-key: ${VTPASS_PUBLIC_KEY}
+    secret-key: ${VTPASS_SECRET_KEY}
     base-url: ${VTPASS_BASE_URL:https://sandbox.vtpass.com/api}
 
   firebase:
