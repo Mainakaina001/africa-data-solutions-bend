@@ -16,6 +16,7 @@ public class PasswordPolicy {
     private static final Pattern SPECIAL = Pattern.compile("[!@#$%^&*(),.?\":{}|<>_\\-+=/\\\\\\[\\]~`';]");
     private static final Pattern REPEATED = Pattern.compile("(.)\\1{3,}");
     private static final Pattern COMMON = Pattern.compile("^(?i)(?:password|qwerty|letmein|admin|welcome|p@ssword)");
+    private static final Pattern ALPHANUMERIC = Pattern.compile("^[a-zA-Z0-9]{6,128}$");
 
     public StrengthResult validatePasswordStrength(String password) {
         List<String> errors = new ArrayList<>();
@@ -25,6 +26,22 @@ public class PasswordPolicy {
         if (!LOWER.matcher(password).find()) errors.add("Password must contain at least one lowercase letter");
         if (!DIGIT.matcher(password).find()) errors.add("Password must contain at least one number");
         if (!SPECIAL.matcher(password).find()) errors.add("Password must contain at least one special character");
+        if (REPEATED.matcher(password).find()) errors.add("Password must not contain 4 or more repeated characters");
+        if (COMMON.matcher(password).find()) errors.add("Password is too common");
+        return new StrengthResult(errors.isEmpty(), errors);
+    }
+
+    /**
+     * Signup password rule: any alphanumeric string (letters and/or digits) of
+     * 6-128 characters, still rejecting trivially guessable ones (4+ repeated
+     * characters, common words like "password"/"qwerty").
+     */
+    public StrengthResult validateSignupPassword(String password) {
+        List<String> errors = new ArrayList<>();
+        if (password == null || !ALPHANUMERIC.matcher(password).matches()) {
+            errors.add("Password must be 6-128 characters and contain only letters and numbers");
+            return new StrengthResult(false, errors);
+        }
         if (REPEATED.matcher(password).find()) errors.add("Password must not contain 4 or more repeated characters");
         if (COMMON.matcher(password).find()) errors.add("Password is too common");
         return new StrengthResult(errors.isEmpty(), errors);

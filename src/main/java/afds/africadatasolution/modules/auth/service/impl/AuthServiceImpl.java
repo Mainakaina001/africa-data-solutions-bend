@@ -94,7 +94,7 @@ public class AuthServiceImpl implements AuthService{
     @Transactional
     @Override
     public RegisterResponse register(RegisterRequest request, String ip, String userAgent) {
-        PasswordPolicy.StrengthResult strength = passwordPolicy.validatePasswordStrength(request.password());
+        PasswordPolicy.StrengthResult strength = passwordPolicy.validateSignupPassword(request.password());
         if (!strength.valid()) {
             throw new ValidationException("Password validation failed: " + String.join(", ", strength.errors()));
         }
