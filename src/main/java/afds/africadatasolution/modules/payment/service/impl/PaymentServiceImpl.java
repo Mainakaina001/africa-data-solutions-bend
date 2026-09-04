@@ -163,7 +163,8 @@ public class PaymentServiceImpl implements PaymentService {
             signatureValid = false;
         }
         if (!signatureValid) {
-            log.warn("Webhook rejected: invalid or missing signature isReservedAccount={}", isReservedAccount);
+            log.warn("Webhook rejected: invalid or missing signature isReservedAccount={} hasBillstackHeader={} hasWiaxyHeader={}",
+                    isReservedAccount, signatureBillstack != null, signatureWiaxy != null);
             throw new AuthenticationException("Invalid webhook signature");
         }
 
