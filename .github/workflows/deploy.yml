@@ -43,6 +43,10 @@ jobs:
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
           JWT_SECRET: ci-only-secret-not-used-in-production
+          BILLSTACK_API_KEY: ci-only-billstack-api-key
+          BILLSTACK_SECRET_KEY: ci-only-billstack-secret-key
+          BILLSTACK_WEBHOOK_SECRET: ci-only-billstack-webhook-secret-not-used-in-prod
+          SME_PLUG_API_KEY: ci-only-sme-plug-api-key
         run: ./mvnw -B test
 
   build-and-push:
