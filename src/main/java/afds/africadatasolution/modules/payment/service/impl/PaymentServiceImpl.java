@@ -151,6 +151,7 @@ public class PaymentServiceImpl implements PaymentService {
     public WebhookResult handleWebhook(byte[] rawBody, String signatureBillstack, String signatureWiaxy) {
         Map<String, Object> body = parseJson(rawBody);
         Map<String, Object> data = asMap(body.get("data"));
+        log.info("Webhook received: event={} data={}", body.get("event"), data);
         boolean isReservedAccount = "PAYMENT_NOTIFICATION".equals(body.get("event"))
                 && "RESERVED_ACCOUNT_TRANSACTION".equals(data.get("type"));
 
