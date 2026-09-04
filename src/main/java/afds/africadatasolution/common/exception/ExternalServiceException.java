@@ -2,7 +2,7 @@ package afds.africadatasolution.common.exception;
 
 import org.springframework.http.HttpStatus;
 
-/** Raised when a downstream provider (Billstack / SME Plug / VTPass / Resend) fails. */
+/** Raised when a downstream provider (Billstack / SME Plug / VTPass / Gmail SMTP) fails. */
 public class ExternalServiceException extends AppException {
 
     private final FailureClassification classification;

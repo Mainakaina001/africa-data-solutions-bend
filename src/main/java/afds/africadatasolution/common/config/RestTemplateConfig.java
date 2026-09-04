@@ -56,17 +56,6 @@ public class RestTemplateConfig {
                 .build();
     }
 
-    /** Plain RestTemplate for calling Resend's HTTP API (auth header is per-request via Bearer key). */
-    @Bean
-    public RestTemplate resendRestTemplate(RestTemplateBuilder builder) {
-        return builder
-                .rootUri("https://api.resend.com")
-                .connectTimeout(Duration.ofSeconds(10))
-                .readTimeout(Duration.ofSeconds(20))
-                .requestFactory(() -> requestFactory(10_000, 20_000))
-                .build();
-    }
-
     private ClientHttpRequestInterceptor bearerAuthInterceptor(String apiKey) {
         String header = "Bearer " + apiKey;
         return (request, body, execution) -> {

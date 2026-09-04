@@ -3,30 +3,31 @@ package afds.africadatasolution.modules.email.service.impl;
 import afds.africadatasolution.common.config.properties.AppProperties;
 import afds.africadatasolution.common.config.properties.EmailProperties;
 import afds.africadatasolution.modules.email.service.EmailService;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
+import org.springframework.mail.MailException;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.UnsupportedEncodingException;
 import java.time.Year;
-import java.util.Map;
 
 @Service
 public class EmailServiceImpl implements EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailServiceImpl.class);
 
-    private final RestTemplate resendRestTemplate;
+    private final JavaMailSenderImpl mailSender;
     private final EmailProperties properties;
     private final String appName;
 
-    public EmailServiceImpl(RestTemplate resendRestTemplate, EmailProperties properties,
+    public EmailServiceImpl(JavaMailSenderImpl mailSender, EmailProperties properties,
                              AppProperties appProperties) {
-        this.resendRestTemplate = resendRestTemplate;
+        this.mailSender = mailSender;
         this.properties = properties;
         this.appName = appProperties.name();
     }
@@ -34,23 +35,27 @@ public class EmailServiceImpl implements EmailService {
     @Async
     @Override
     public void send(String to, String subject, String html) {
-        if (properties.resendApiKey() == null || properties.resendApiKey().isBlank()) {
-            log.warn("Email not configured — set RESEND_API_KEY to enable emails to={} subject={}", to, subject);
+        if (isBlank(properties.gmailUsername()) || isBlank(properties.gmailAppPassword())) {
+            log.warn("Email not configured — set GMAIL_USERNAME and GMAIL_APP_PASSWORD to enable emails to={} subject={}", to, subject);
             return;
         }
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(properties.resendApiKey());
-            Map<String, Object> body = Map.of(
-                    "from", appName + " <" + properties.from() + ">",
-                    "to", to,
-                    "subject", subject,
-                    "html", html);
-            resendRestTemplate.postForEntity("/emails", new HttpEntity<>(body, headers), Void.class);
+            String fromAddress = isBlank(properties.from()) ? properties.gmailUsername() : properties.from();
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromAddress, appName);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+            mailSender.send(message);
             log.info("Email sent successfully to={} subject={}", to, subject);
-        } catch (RestClientException e) {
+        } catch (MessagingException | UnsupportedEncodingException | MailException e) {
             log.error("Failed to send email to={} subject={} error={}", to, subject, e.getMessage());
         }
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     private String layout(String content) {

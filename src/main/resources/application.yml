@@ -96,8 +96,9 @@ app:
     service-account-path: ${FIREBASE_SERVICE_ACCOUNT_PATH:./firebase-service-account.json}
 
   email:
-    resend-api-key: ${RESEND_API_KEY:}
-    from: ${EMAIL_FROM:onboarding@resend.dev}
+    gmail-username: ${GMAIL_USERNAME:}
+    gmail-app-password: ${GMAIL_APP_PASSWORD:}
+    from: ${EMAIL_FROM:}
 
   rate-limit:
     window-ms: ${RATE_LIMIT_WINDOW_MS:900000}

@@ -1,6 +1,8 @@
 HELP.md
 target/
 logs/
+.env
+firebase-service-account.json
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
