@@ -144,7 +144,7 @@ public class AuthServiceImpl implements AuthService{
             String reference = "VA_" + user.getId().toString().substring(0, 8) + "_" + System.currentTimeMillis();
             String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
             PaymentPointVirtualAccountResponse response =
-                    paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), "PALMPAY");
+                    paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), PaymentPointClient.DEFAULT_BANK);
 
             var accountDetails = response.bankAccounts().isEmpty() ? null : response.bankAccounts().get(0);
             if (accountDetails == null) return null;

@@ -30,6 +30,9 @@ public class PaymentPointClient {
     /** PaymentPoint only supports these two partner banks for virtual accounts. */
     public static final Map<String, String> BANK_CODES = Map.of("PALMPAY", "20946", "OPAY", "20897");
 
+    /** Bank used when a caller doesn't specify one (e.g. auto-created on signup). */
+    public static final String DEFAULT_BANK = "PALMPAY";
+
     private final RestTemplate restTemplate;
     private final PaymentPointProperties properties;
 

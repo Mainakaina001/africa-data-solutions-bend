@@ -78,7 +78,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     @Override
     public CreateVirtualAccountResult createVirtualAccount(UUID userId, String bank) {
-        if (!PaymentPointClient.BANK_CODES.containsKey(bank)) {
+        String selectedBank = (bank == null || bank.isBlank()) ? PaymentPointClient.DEFAULT_BANK : bank;
+        if (!PaymentPointClient.BANK_CODES.containsKey(selectedBank)) {
             throw new ValidationException("Bank must be one of: " + String.join(", ", PaymentPointClient.BANK_CODES.keySet()));
         }
 
@@ -92,7 +93,7 @@ public class PaymentServiceImpl implements PaymentService {
         String reference = "VA_" + userId.toString().substring(0, 8) + "_" + System.currentTimeMillis();
         String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
         PaymentPointVirtualAccountResponse response =
-                paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), bank);
+                paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), selectedBank);
 
         var accountDetails = response.bankAccounts().get(0);
 
@@ -104,7 +105,7 @@ public class PaymentServiceImpl implements PaymentService {
         va.setBankName(accountDetails.bankName());
         va.setBankCode(accountDetails.bankCode());
         va.setProvider("paymentpoint");
-        va.setMetadata(Map.of("bank", bank, "createdVia", "api"));
+        va.setMetadata(Map.of("bank", selectedBank, "createdVia", "api"));
         virtualAccountRepository.save(va);
 
         return new CreateVirtualAccountResult(VirtualAccountSummary.from(va), false);
