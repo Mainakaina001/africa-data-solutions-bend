@@ -118,10 +118,27 @@ public class BillstackClient {
     public boolean verifyReservedAccountSignature(String signature) {
         if (signature == null || signature.isBlank()) return false;
         try {
-            MessageDigest md5 = MessageDigest.getInstance("MD5");
-            byte[] expected = md5.digest(properties.webhookSecret().getBytes(StandardCharsets.UTF_8));
             byte[] provided = HexFormat.of().parseHex(signature);
-            return MessageDigest.isEqual(expected, provided);
+            boolean valid = matchesMd5(properties.webhookSecret(), provided);
+            if (!valid) {
+                // TEMPORARY diagnostic for the BILLSTACK_WEBHOOK_SECRET misconfiguration —
+                // logs only match/no-match booleans, never secret material. Remove once
+                // the correct source property is confirmed and BILLSTACK_WEBHOOK_SECRET
+                // is fixed to match it.
+                log.warn("Reserved-account signature mismatch: matchesApiKey={} matchesSecretKey={}",
+                        matchesMd5(properties.apiKey(), provided), matchesMd5(properties.secretKey(), provided));
+            }
+            return valid;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean matchesMd5(String candidateSecret, byte[] provided) {
+        if (candidateSecret == null || candidateSecret.isBlank()) return false;
+        try {
+            MessageDigest md5 = MessageDigest.getInstance("MD5");
+            return MessageDigest.isEqual(md5.digest(candidateSecret.getBytes(StandardCharsets.UTF_8)), provided);
         } catch (Exception e) {
             return false;
         }
