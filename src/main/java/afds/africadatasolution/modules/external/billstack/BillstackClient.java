@@ -16,7 +16,10 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 
 /**
- * Billstack — virtual accounts (wallet funding) provider.
+ * Billstack — legacy virtual account provider, kept alive only to keep
+ * crediting funds sent to already-issued account numbers and to run the
+ * hosted-checkout funding flow (see PaymentServiceImpl#initiateFunding).
+ * New virtual accounts are issued via PaymentPointClient instead.
  * Mirrors backend/src/services/billstack.service.ts.
  *
  * Purchase/account-creation POSTs are attempted exactly once (not idempotent
@@ -40,6 +43,11 @@ public class BillstackClient {
         this.properties = properties;
     }
 
+    /**
+     * No longer called for new accounts — see {@code PaymentPointClient}.
+     * Kept only so account creation can be rolled back to Billstack quickly
+     * if PaymentPoint has issues; remove once that risk has passed.
+     */
     public BillstackVirtualAccountResponse generateVirtualAccount(BillstackVirtualAccountRequest request) {
         log.info("Generating Billstack virtual account reference={} email={} bank={}",
                 request.reference(), request.email(), request.bank());

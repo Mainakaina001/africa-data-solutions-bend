@@ -1,7 +1,8 @@
 # Africa Data Solutions — Spring Boot API
 
 Java/Spring Boot port of the Node/Express `backend` service: a fintech-telecom
-platform for wallet management, virtual-account funding (Billstack), data/airtime
+platform for wallet management, virtual-account funding (PaymentPoint, with
+Billstack kept alive only for already-issued account numbers), data/airtime
 delivery (SME Plug, VTPass), and bill payments (electricity/TV/education via VTPass).
 
 ## Stack
@@ -27,19 +28,25 @@ environment variables. See `src/main/resources/application.yml` for the full
 list and defaults. At minimum, set:
 
 ```
-JWT_SECRET                  (>= 32 chars, required)
+JWT_SECRET                (>= 32 chars, required)
 BILLSTACK_API_KEY
 BILLSTACK_SECRET_KEY
-BILLSTACK_WEBHOOK_SECRET    (>= 32 chars, required)
+BILLSTACK_WEBHOOK_SECRET  (>= 32 chars, required)
+PAYMENTPOINT_API_KEY
+PAYMENTPOINT_API_SECRET   (also used as the webhook HMAC key — PaymentPoint has no separate one)
+PAYMENTPOINT_BUSINESS_ID
 SME_PLUG_API_KEY
-FRONTEND_ORIGINS            (comma-separated allowlist, no wildcards)
-DATABASE_URL                (jdbc:postgresql://host:5432/dbname)
+FRONTEND_ORIGINS          (comma-separated allowlist, no wildcards)
+DATABASE_URL              (jdbc:postgresql://host:5432/dbname)
 DATABASE_USERNAME
 DATABASE_PASSWORD
 ```
 
 The app refuses to start if `JWT_SECRET` / `BILLSTACK_WEBHOOK_SECRET` are
 missing or a known-weak value (same fail-fast policy as the Node version).
+`PAYMENTPOINT_API_SECRET` is only required to be present — it's an
+externally-issued credential we don't control the format of, so no arbitrary
+strength rule is applied to it.
 
 ## Running
 

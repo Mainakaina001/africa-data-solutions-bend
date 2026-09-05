@@ -1,7 +1,6 @@
 package afds.africadatasolution.modules.payment.service.impl;
 
 import afds.africadatasolution.common.exception.AuthenticationException;
-import afds.africadatasolution.common.exception.ExternalServiceException;
 import afds.africadatasolution.common.exception.NotFoundException;
 import afds.africadatasolution.common.exception.ValidationException;
 import afds.africadatasolution.common.config.properties.AppProperties;
@@ -16,8 +15,8 @@ import afds.africadatasolution.domain.webhook.WebhookEventRepository;
 import afds.africadatasolution.modules.external.billstack.BillstackClient;
 import afds.africadatasolution.modules.external.billstack.BillstackPaymentRequest;
 import afds.africadatasolution.modules.external.billstack.BillstackPaymentResponse;
-import afds.africadatasolution.modules.external.billstack.BillstackVirtualAccountRequest;
-import afds.africadatasolution.modules.external.billstack.BillstackVirtualAccountResponse;
+import afds.africadatasolution.modules.external.paymentpoint.PaymentPointClient;
+import afds.africadatasolution.modules.external.paymentpoint.PaymentPointVirtualAccountResponse;
 import afds.africadatasolution.modules.outbox.service.OutboxService;
 import afds.africadatasolution.modules.payment.dto.response.FundingInitiationResponse;
 import afds.africadatasolution.modules.payment.dto.response.VirtualAccountListItem;
@@ -47,13 +46,13 @@ import java.util.UUID;
 public class PaymentServiceImpl implements PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
-    private static final List<String> VALID_BANKS = List.of("PALMPAY", "9PSB", "SAFEHAVEN", "PROVIDUS", "BANKLY");
 
     private final UserRepository userRepository;
     private final VirtualAccountRepository virtualAccountRepository;
     private final WebhookEventRepository webhookEventRepository;
     private final WalletService walletService;
     private final BillstackClient billstackClient;
+    private final PaymentPointClient paymentPointClient;
     private final OutboxService outboxService;
     private final AppProperties appProperties;
     private final WalletProperties walletProperties;
@@ -61,13 +60,15 @@ public class PaymentServiceImpl implements PaymentService {
 
     public PaymentServiceImpl(UserRepository userRepository, VirtualAccountRepository virtualAccountRepository,
                                WebhookEventRepository webhookEventRepository, WalletService walletService,
-                               BillstackClient billstackClient, OutboxService outboxService, AppProperties appProperties,
+                               BillstackClient billstackClient, PaymentPointClient paymentPointClient,
+                               OutboxService outboxService, AppProperties appProperties,
                                WalletProperties walletProperties, ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.virtualAccountRepository = virtualAccountRepository;
         this.webhookEventRepository = webhookEventRepository;
         this.walletService = walletService;
         this.billstackClient = billstackClient;
+        this.paymentPointClient = paymentPointClient;
         this.outboxService = outboxService;
         this.appProperties = appProperties;
         this.walletProperties = walletProperties;
@@ -77,8 +78,8 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     @Override
     public CreateVirtualAccountResult createVirtualAccount(UUID userId, String bank) {
-        if (!VALID_BANKS.contains(bank)) {
-            throw new ValidationException("Bank must be one of: " + String.join(", ", VALID_BANKS));
+        if (!PaymentPointClient.BANK_CODES.containsKey(bank)) {
+            throw new ValidationException("Bank must be one of: " + String.join(", ", PaymentPointClient.BANK_CODES.keySet()));
         }
 
         var existing = virtualAccountRepository.findFirstByUserIdAndIsActiveTrue(userId);
@@ -89,13 +90,11 @@ public class PaymentServiceImpl implements PaymentService {
         User user = userRepository.findById(userId).orElseThrow(() -> new AuthenticationException("User not found"));
 
         String reference = "VA_" + userId.toString().substring(0, 8) + "_" + System.currentTimeMillis();
-        BillstackVirtualAccountResponse response = billstackClient.generateVirtualAccount(new BillstackVirtualAccountRequest(
-                user.getEmail(), reference, user.getFirstName(), user.getLastName(), user.getPhone(), bank));
+        String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
+        PaymentPointVirtualAccountResponse response =
+                paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), bank);
 
-        var accountDetails = response.data().account().isEmpty() ? null : response.data().account().get(0);
-        if (accountDetails == null) {
-            throw new ExternalServiceException("Billstack", "No account details returned from Billstack");
-        }
+        var accountDetails = response.bankAccounts().get(0);
 
         VirtualAccount va = new VirtualAccount();
         va.setUserId(userId);
@@ -103,7 +102,8 @@ public class PaymentServiceImpl implements PaymentService {
         va.setAccountNumber(accountDetails.accountNumber());
         va.setAccountName(accountDetails.accountName());
         va.setBankName(accountDetails.bankName());
-        va.setBankCode(accountDetails.bankId());
+        va.setBankCode(accountDetails.bankCode());
+        va.setProvider("paymentpoint");
         va.setMetadata(Map.of("bank", bank, "createdVia", "api"));
         virtualAccountRepository.save(va);
 
@@ -200,6 +200,77 @@ public class PaymentServiceImpl implements PaymentService {
             webhookEventRepository.updateStatus("billstack", externalId, "FAILED", null);
             throw e;
         }
+    }
+
+    @Transactional
+    @Override
+    public WebhookResult handlePaymentPointWebhook(byte[] rawBody, String signature) {
+        Map<String, Object> data = parseJson(rawBody);
+        log.info("PaymentPoint webhook received: notification_status={} transaction_id={}",
+                data.get("notification_status"), data.get("transaction_id"));
+
+        if (!paymentPointClient.verifyWebhookSignature(rawBody, signature)) {
+            log.warn("PaymentPoint webhook rejected: invalid or missing signature hasSignatureHeader={}", signature != null);
+            throw new AuthenticationException("Invalid webhook signature");
+        }
+
+        String externalId = str(data.get("transaction_id"));
+        if (externalId == null) externalId = "unknown_" + System.currentTimeMillis();
+
+        if (!"payment_successful".equals(data.get("notification_status"))) {
+            log.info("PaymentPoint webhook ignored: notification_status={}", data.get("notification_status"));
+            return new WebhookResult(false, false, externalId);
+        }
+
+        String payloadHash = sha256Hex(rawBody);
+
+        WebhookEvent event = new WebhookEvent();
+        event.setProvider("paymentpoint");
+        event.setExternalId(externalId);
+        event.setPayloadHash(payloadHash);
+        event.setStatus("PROCESSING");
+        try {
+            webhookEventRepository.save(event);
+        } catch (DataIntegrityViolationException e) {
+            log.info("PaymentPoint webhook duplicate (already received) externalId={}", externalId);
+            return new WebhookResult(false, true, externalId);
+        }
+
+        try {
+            processPaymentPointFunding(data);
+            webhookEventRepository.updateStatus("paymentpoint", externalId, "PROCESSED", Instant.now());
+            return new WebhookResult(true, false, externalId);
+        } catch (RuntimeException e) {
+            webhookEventRepository.updateStatus("paymentpoint", externalId, "FAILED", null);
+            throw e;
+        }
+    }
+
+    private void processPaymentPointFunding(Map<String, Object> data) {
+        String transactionId = str(data.get("transaction_id"));
+        BigDecimal amount = toBigDecimal(data.get("amount_paid"));
+        Map<String, Object> receiver = asMap(data.get("receiver"));
+        String accountNumber = str(receiver.get("account_number"));
+        Map<String, Object> sender = asMap(data.get("sender"));
+        String payerName = str(sender.get("name"));
+
+        if (transactionId == null || accountNumber == null || amount == null) {
+            throw new ValidationException("Malformed PaymentPoint webhook payload");
+        }
+
+        VirtualAccount virtualAccount = virtualAccountRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new NotFoundException("Virtual account not found"));
+        UUID userId = virtualAccount.getUserId();
+        Wallet wallet = walletService.getWalletByUserId(userId);
+
+        walletService.creditWallet(new WalletCreditCommand(wallet.getId(), amount, transactionId,
+                "Wallet funding via virtual account",
+                Map.of("accountNumber", virtualAccount.getAccountNumber(), "accountName", virtualAccount.getAccountName(),
+                        "bankName", virtualAccount.getBankName(), "payerName", payerName == null ? "" : payerName,
+                        "transactionType", "paymentpoint_virtual_account")));
+
+        outboxService.enqueue("notification.wallet_funded", userId.toString(),
+                Map.of("userId", userId.toString(), "amount", amount.toString()));
     }
 
     private void processReservedAccount(Map<String, Object> data) {

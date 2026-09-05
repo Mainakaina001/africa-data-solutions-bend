@@ -21,9 +21,8 @@ import afds.africadatasolution.modules.auth.dto.request.*;
 import afds.africadatasolution.modules.auth.dto.response.*;
 import afds.africadatasolution.modules.auth.service.AuthService;
 import afds.africadatasolution.modules.email.service.EmailService;
-import afds.africadatasolution.modules.external.billstack.BillstackClient;
-import afds.africadatasolution.modules.external.billstack.BillstackVirtualAccountRequest;
-import afds.africadatasolution.modules.external.billstack.BillstackVirtualAccountResponse;
+import afds.africadatasolution.modules.external.paymentpoint.PaymentPointClient;
+import afds.africadatasolution.modules.external.paymentpoint.PaymentPointVirtualAccountResponse;
 import afds.africadatasolution.modules.payment.dto.response.VirtualAccountSummary;
 import afds.africadatasolution.modules.wallet.dto.response.WalletSummary;
 import org.slf4j.Logger;
@@ -61,14 +60,14 @@ public class AuthServiceImpl implements AuthService{
     private final OtpGenerator otpGenerator;
     private final EmailService emailService;
     private final AuditService auditService;
-    private final BillstackClient billstackClient;
+    private final PaymentPointClient paymentPointClient;
     private final WalletProperties walletProperties;
 
     public AuthServiceImpl(UserRepository userRepository, WalletRepository walletRepository,
                        VirtualAccountRepository virtualAccountRepository,
                        RefreshTokenService refreshTokenService, TwoFactorService twoFactorService, JwtService jwtService,
                        PasswordEncoder passwordEncoder, PasswordPolicy passwordPolicy, OtpGenerator otpGenerator,
-                       EmailService emailService, AuditService auditService, BillstackClient billstackClient,
+                       EmailService emailService, AuditService auditService, PaymentPointClient paymentPointClient,
                        WalletProperties walletProperties) {
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
@@ -81,7 +80,7 @@ public class AuthServiceImpl implements AuthService{
         this.otpGenerator = otpGenerator;
         this.emailService = emailService;
         this.auditService = auditService;
-        this.billstackClient = billstackClient;
+        this.paymentPointClient = paymentPointClient;
         this.walletProperties = walletProperties;
     }
 
@@ -143,19 +142,21 @@ public class AuthServiceImpl implements AuthService{
     private VirtualAccountSummary tryCreateVirtualAccount(User user) {
         try {
             String reference = "VA_" + user.getId().toString().substring(0, 8) + "_" + System.currentTimeMillis();
-            BillstackVirtualAccountResponse response = billstackClient.generateVirtualAccount(new BillstackVirtualAccountRequest(
-                    user.getEmail(), reference, user.getFirstName(), user.getLastName(), user.getPhone(), "9PSB"));
+            String fullName = (user.getFirstName() + " " + user.getLastName()).trim();
+            PaymentPointVirtualAccountResponse response =
+                    paymentPointClient.generateVirtualAccount(user.getEmail(), fullName, user.getPhone(), "PALMPAY");
 
-            var accountDetails = response.data().account().isEmpty() ? null : response.data().account().get(0);
+            var accountDetails = response.bankAccounts().isEmpty() ? null : response.bankAccounts().get(0);
             if (accountDetails == null) return null;
 
             VirtualAccount va = new VirtualAccount();
             va.setUserId(user.getId());
-            va.setAccountReference(response.data().reference());
+            va.setAccountReference(reference);
             va.setAccountNumber(accountDetails.accountNumber());
             va.setAccountName(accountDetails.accountName());
             va.setBankName(accountDetails.bankName());
-            va.setBankCode(accountDetails.bankId());
+            va.setBankCode(accountDetails.bankCode());
+            va.setProvider("paymentpoint");
             va.setMetadata(java.util.Map.of("createdVia", "auto_registration"));
             virtualAccountRepository.save(va);
             return VirtualAccountSummary.from(va);

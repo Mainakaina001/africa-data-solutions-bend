@@ -10,7 +10,9 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Virtual accounts, wallet funding, and the Billstack webhook.
+ * Virtual accounts, wallet funding, and the provider webhooks. New virtual
+ * accounts are issued via PaymentPoint; the Billstack webhook stays wired up
+ * only to keep crediting funds sent to already-issued Billstack accounts.
  * Mirrors backend/src/controllers/payment.controller.ts.
  *
  * Webhook security: signature is verified against the RAW request bytes
@@ -29,6 +31,8 @@ public interface PaymentService {
     WalletTransactionView verifyFunding(UUID userId, String reference);
 
     WebhookResult handleWebhook(byte[] rawBody, String signatureBillstack, String signatureWiaxy);
+
+    WebhookResult handlePaymentPointWebhook(byte[] rawBody, String signature);
 
     record CreateVirtualAccountResult(VirtualAccountSummary account, boolean alreadyExisted) {
     }

@@ -40,6 +40,9 @@ public class StartupSecurityValidator implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         requireStrong("app.jwt.secret", jwtProperties.secret());
         requireStrong("app.billstack.webhook-secret", billstackProperties.webhookSecret());
+        // PaymentPoint issues a single account secret key (no separate webhook
+        // secret) that we don't control the format of, so it's only required
+        // to be present (see PaymentPointProperties' @NotBlank), not "strong".
     }
 
     private void requireStrong(String key, String value) {

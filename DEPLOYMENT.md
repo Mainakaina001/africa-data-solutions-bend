@@ -62,8 +62,9 @@ Copy `.env.example` from the repo, rename to `.env`, and fill in real values
 place production secrets live. At minimum you must set: `DATABASE_PASSWORD`,
 `JWT_SECRET` (generate with `openssl rand -base64 64`), `APP_URL`,
 `FRONTEND_ORIGINS`, `DOMAIN`, `GHCR_OWNER` (your GitHub username/org),
-`GHCR_IMAGE=africa-data-solutions`, plus the Billstack/SME Plug/VTPass keys
-for whichever integrations you're using.
+`GHCR_IMAGE=africa-data-solutions`, plus the PaymentPoint/Billstack/SME Plug/VTPass
+keys for whichever integrations you're using (PaymentPoint issues new virtual
+accounts; Billstack is kept only to keep crediting already-issued accounts).
 
 `docker-compose.yml` and `Caddyfile` are copied into this directory
 automatically by the deploy job on every run, so you don't need to place them

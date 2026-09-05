@@ -46,6 +46,9 @@ jobs:
           BILLSTACK_API_KEY: ci-only-billstack-api-key
           BILLSTACK_SECRET_KEY: ci-only-billstack-secret-key
           BILLSTACK_WEBHOOK_SECRET: ci-only-billstack-webhook-secret-not-used-in-prod
+          PAYMENTPOINT_API_KEY: ci-only-paymentpoint-api-key
+          PAYMENTPOINT_API_SECRET: ci-only-paymentpoint-api-secret
+          PAYMENTPOINT_BUSINESS_ID: ci-only-paymentpoint-business-id
           SME_PLUG_API_KEY: ci-only-sme-plug-api-key
         run: ./mvnw -B test
 

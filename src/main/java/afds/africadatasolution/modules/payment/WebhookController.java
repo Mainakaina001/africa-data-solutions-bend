@@ -14,11 +14,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 
 /**
- * Billstack webhook entry point. Deliberately reads the RAW request bytes
- * itself (no {@code @RequestBody}) so the HMAC signature is verified against
- * the exact bytes Billstack signed — re-serializing a parsed JSON object
- * before verifying would let subtle re-encoding differences bypass the
- * signature check. Mirrors backend/src/app.ts's raw-body webhook router.
+ * Billstack (legacy) and PaymentPoint (current) webhook entry points.
+ * Deliberately reads the RAW request bytes itself (no {@code @RequestBody})
+ * so each HMAC signature is verified against the exact bytes the provider
+ * signed — re-serializing a parsed JSON object before verifying would let
+ * subtle re-encoding differences bypass the signature check. Mirrors
+ * backend/src/app.ts's raw-body webhook router.
  */
 @RestController
 @RequestMapping("/api/v1/webhooks")
@@ -45,6 +46,22 @@ public class WebhookController {
         }
 
         var result = paymentService.handleWebhook(raw, signatureBillstack, signatureWiaxy);
+        String message = result.duplicate() ? "Already received" : "Webhook processed successfully";
+        return ApiResponse.success(message, new WebhookProcessResponse(result.processed(), result.externalId()));
+    }
+
+    @SecurityRequirements
+    @PostMapping("/paymentpoint")
+    public ApiResponse<WebhookProcessResponse> handlePaymentPointWebhook(
+            HttpServletRequest request,
+            @RequestHeader(value = "Paymentpoint-Signature", required = false) String signature) throws IOException {
+
+        byte[] raw = request.getInputStream().readNBytes(MAX_BODY_BYTES + 1);
+        if (raw.length > MAX_BODY_BYTES) {
+            throw new ValidationException("Webhook payload too large");
+        }
+
+        var result = paymentService.handlePaymentPointWebhook(raw, signature);
         String message = result.duplicate() ? "Already received" : "Webhook processed successfully";
         return ApiResponse.success(message, new WebhookProcessResponse(result.processed(), result.externalId()));
     }

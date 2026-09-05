@@ -44,6 +44,9 @@ public class VirtualAccount {
     @Column(name = "bank_code")
     private String bankCode;
 
+    @Column(nullable = false)
+    private String provider = "billstack";
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
 

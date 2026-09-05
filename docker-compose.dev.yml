@@ -37,7 +37,10 @@ services:
       JWT_SECRET: dev-only-secret-do-not-use-in-production
       BILLSTACK_API_KEY: dev-placeholder
       BILLSTACK_SECRET_KEY: dev-placeholder
-      BILLSTACK_WEBHOOK_SECRET: dev-placeholder
+      BILLSTACK_WEBHOOK_SECRET: dev-placeholder-not-used-in-production
+      PAYMENTPOINT_API_KEY: dev-placeholder
+      PAYMENTPOINT_API_SECRET: dev-placeholder
+      PAYMENTPOINT_BUSINESS_ID: dev-placeholder
       SME_PLUG_API_KEY: dev-placeholder
       VTPASS_API_KEY: dev-placeholder
       VTPASS_PUBLIC_KEY: dev-placeholder

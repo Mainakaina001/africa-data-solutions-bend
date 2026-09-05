@@ -1,6 +1,7 @@
 package afds.africadatasolution.common.config;
 
 import afds.africadatasolution.common.config.properties.BillstackProperties;
+import afds.africadatasolution.common.config.properties.PaymentPointProperties;
 import afds.africadatasolution.common.config.properties.SmePlugProperties;
 import afds.africadatasolution.common.config.properties.VtPassProperties;
 import org.springframework.boot.restclient.RestTemplateBuilder;
@@ -54,6 +55,25 @@ public class RestTemplateConfig {
                 .defaultHeader("api-key", props.apiKey())
                 .requestFactory(() -> requestFactory(15_000, 60_000))
                 .build();
+    }
+
+    @Bean
+    public RestTemplate paymentPointRestTemplate(RestTemplateBuilder builder, PaymentPointProperties props) {
+        return builder
+                .rootUri(props.baseUrl())
+                .connectTimeout(Duration.ofSeconds(15))
+                .readTimeout(Duration.ofSeconds(30))
+                .additionalInterceptors(paymentPointAuthInterceptor(props))
+                .requestFactory(() -> requestFactory(15_000, 30_000))
+                .build();
+    }
+
+    private ClientHttpRequestInterceptor paymentPointAuthInterceptor(PaymentPointProperties props) {
+        return (request, body, execution) -> {
+            request.getHeaders().set("Authorization", "Bearer " + props.apiSecret());
+            request.getHeaders().set("api-key", props.apiKey());
+            return execution.execute(request, body);
+        };
     }
 
     private ClientHttpRequestInterceptor bearerAuthInterceptor(String apiKey) {

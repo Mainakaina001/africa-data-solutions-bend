@@ -79,6 +79,14 @@ app:
     webhook-secret: ${BILLSTACK_WEBHOOK_SECRET}
     webhook-ip-allowlist: ${BILLSTACK_WEBHOOK_IPS:}
 
+  # New virtual accounts are issued via PaymentPoint; Billstack (above) stays
+  # configured only to keep crediting funds sent to already-issued accounts.
+  payment-point:
+    api-key: ${PAYMENTPOINT_API_KEY}
+    api-secret: ${PAYMENTPOINT_API_SECRET}
+    business-id: ${PAYMENTPOINT_BUSINESS_ID}
+    base-url: ${PAYMENTPOINT_BASE_URL:https://api.paymentpoint.co}
+
   sme-plug:
     api-key: ${SME_PLUG_API_KEY}
     base-url: ${SME_PLUG_BASE_URL:https://smeplug.ng/api/v1}
